@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Glove Sensor: XYZ Monitor & Find My Glove</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; width: 90%; max-width: 1200px; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .status { padding: 8px 16px; border-radius: 20px; font-size: 14px; margin-bottom: 20px; background: #334155; }
+        .online { color: #4ade80; border: 1px solid #4ade80; }
+        h1 { color: #38bdf8; margin-bottom: 10px; }
+        .value-display { font-size: 1.2rem; font-weight: bold; margin-top: 10px; display: flex; gap: 20px; color: #94a3b8; }
+        .x { color: #ef4444; } .y { color: #22c55e; } .z { color: #3b82f6; }
+        
+        /* สไตล์ปุ่มใหม่ */
+        .btn-find { 
+            padding: 12px 25px; 
+            background: #eab308; 
+            color: #000; 
+            border: none; 
+            border-radius: 50px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            margin-bottom: 20px;
+            transition: 0.3s;
+            box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+        }
+        .btn-find:hover { background: #facc15; transform: scale(1.05); }
+        .btn-find:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <h1>🧤 Glove Real-time XYZ Monitor</h1>
+    
+    <button id="findGloveBtn" class="btn-find">🔍 FIND MY GLOVE (ส่งเสียงเรียก)</button>
+
+    <div id="status" class="status">รอข้อมูลจาก Firebase...</div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Accelerometer (X, Y, Z)</h3>
+            <canvas id="xyzChart"></canvas>
+            <div class="value-display">
+                <span class="x">X: <span id="valX">0</span></span>
+                <span class="y">Y: <span id="valY">0</span></span>
+                <span class="z">Z: <span id="valZ">0</span></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Resultant Force (Total G)</h3>
+            <canvas id="gChart"></canvas>
+            <div class="value-display">
+                <span style="color: #fbbf24;">G-Force: <span id="valG">0</span> m/s²</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAY9TqQEY_PsbC2dHniwKVQCJFkmMGRlTI",
+            databaseURL: "https://glove-a8c55-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- เพิ่มฟังก์ชันกดปุ่มตามหาถุงมือ ---
+        document.getElementById('findGloveBtn').addEventListener('click', () => {
+            db.ref("/SmartGlove/Control").update({
+                findMe: true
+            }).then(() => {
+                console.log("Find command sent!");
+                // เปลี่ยนข้อความปุ่มชั่วคราว
+                const btn = document.getElementById('findGloveBtn');
+                const originalText = btn.innerText;
+                btn.innerText = "🔔 กำลังเรียก...";
+                setTimeout(() => btn.innerText = originalText, 2000);
+            });
+        });
+
+        // --- 2. Chart Setup ---
+        const commonOptions = {
+            animation: false,
+            scales: { y: { beginAtZero: false } },
+            elements: { point: { radius: 0 } }
+        };
+
+        const xyzCtx = document.getElementById('xyzChart').getContext('2d');
+        const xyzChart = new Chart(xyzCtx, {
+            type: 'line',
+            data: {
+                labels: Array(30).fill(''),
+                datasets: [
+                    { label: 'X', data: [], borderColor: '#ef4444', borderWidth: 2 },
+                    { label: 'Y', data: [], borderColor: '#22c55e', borderWidth: 2 },
+                    { label: 'Z', data: [], borderColor: '#3b82f6', borderWidth: 2 }
+                ]
+            },
+            options: commonOptions
+        });
+
+        const gCtx = document.getElementById('gChart').getContext('2d');
+        const gChart = new Chart(gCtx, {
+            type: 'line',
+            data: {
+                labels: Array(30).fill(''),
+                datasets: [{ label: 'Total G', data: [], borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.2)', fill: true }]
+            },
+            options: { ...commonOptions, scales: { y: { min: 0, max: 40 } } }
+        });
+
+        // --- 3. Listen to Firebase ---
+        db.ref("/SmartGlove/Live").on("value", (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById('status').innerText = "✅ เชื่อมต่อสำเร็จ (Streaming)";
+                document.getElementById('status').className = "status online";
+
+                document.getElementById('valX').innerText = data.x.toFixed(2);
+                document.getElementById('valY').innerText = data.y.toFixed(2);
+                document.getElementById('valZ').innerText = data.z.toFixed(2);
+                document.getElementById('valG').innerText = data.total_g.toFixed(2);
+
+                [xyzChart.data.datasets[0].data, xyzChart.data.datasets[1].data, xyzChart.data.datasets[2].data].forEach((dataset, i) => {
+                    if (dataset.length > 30) dataset.shift();
+                    dataset.push(i === 0 ? data.x : i === 1 ? data.y : data.z);
+                });
+                xyzChart.update();
+
+                if (gChart.data.datasets[0].data.length > 30) gChart.data.datasets[0].data.shift();
+                gChart.data.datasets[0].data.push(data.total_g);
+                gChart.update();
+            }
+        });
+    </script>
+</body>
+</html>
