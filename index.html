@@ -3,111 +3,281 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glove Sensor: XYZ Monitor & Health Report</title>
+    <title>CareGlove Monitor</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        /* --- 🎨 NEON DARK THEME --- */
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: #0b0f1a; 
+            background-image: radial-gradient(circle at 50% -20%, #1e293b 0%, #0b0f1a 80%);
+            color: #e2e8f0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px; 
+            margin: 0; 
+            min-height: 100vh;
+        }
+
+        h1 { 
+            color: #ffffff; 
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.5); 
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 25px;
+        }
+
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; width: 95%; max-width: 1200px; }
-        .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: 0.3s; }
-        .status { padding: 8px 16px; border-radius: 20px; font-size: 14px; margin-bottom: 20px; background: #334155; }
-        .online { color: #4ade80; border: 1px solid #4ade80; }
-        h1 { color: #38bdf8; margin-bottom: 10px; }
-        .value-display { font-size: 1.2rem; font-weight: bold; margin-top: 10px; display: flex; gap: 20px; color: #94a3b8; }
-        .x { color: #ef4444; } .y { color: #22c55e; } .z { color: #3b82f6; }
         
-        /* สไตล์ปุ่ม */
-        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
-        .btn { padding: 12px 25px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; transition: 0.3s; color: white; }
-        .btn-find { background: #eab308; color: #000; box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
+        .card { 
+            background: rgba(30, 41, 59, 0.7); 
+            backdrop-filter: blur(10px);
+            padding: 24px; 
+            border-radius: 20px; 
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        .card:hover { 
+            transform: translateY(-5px); 
+            border-color: rgba(56, 189, 248, 0.4);
+        }
+        
+        .status { padding: 8px 16px; border-radius: 50px; font-size: 13px; margin-bottom: 25px; background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+        .online { color: #22c55e; border-color: #22c55e; background: rgba(34, 197, 94, 0.1); box-shadow: 0 0 10px rgba(34, 197, 94, 0.2); }
+
+        .btn-group { 
+            display: flex; 
+            gap: 12px; 
+            margin-bottom: 30px; 
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn { 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 12px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: 0.3s; 
+            color: white; 
+            text-transform: uppercase; 
+            font-size: 11px; 
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn-find { background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); }
         .btn-reset { background: #334155; border: 1px solid #475569; }
-        .btn-pdf { background: #6366f1; box-shadow: 0 0 15px rgba(99, 102, 241, 0.3); }
-        .btn:hover { transform: scale(1.05); opacity: 0.9; }
+        .btn-pdf { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); }
+        .btn-fall { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+        .btn:active { transform: scale(0.98); }
 
-        .exercise-card { border: 2px solid #22c55e; text-align: center; }
-        .heart-card { border: 2px solid #ec4899; text-align: center; }
-        .counter-val { font-size: 4rem; font-weight: bold; color: #22c55e; margin: 10px 0; }
-        .heart-val { color: #ec4899; }
+        .exercise-card { border-bottom: 4px solid #10b981; }
+        .heart-card { border-bottom: 4px solid #f43f5e; }
+        .step-card { border-bottom: 4px solid #06b6d4; }
+        .score-card { border: 1px solid rgba(168, 85, 247, 0.5); background: rgba(168, 85, 247, 0.05); text-align: center; grid-column: 1 / -1; }
+        .stress-card { border-bottom: 4px solid #f97316; }
+        
+        .counter-val { font-size: 4.5rem; font-weight: 900; margin: 5px 0; letter-spacing: -2px; }
+        .score-val { color: #a855f7; text-shadow: 0 0 20px rgba(168, 85, 247, 0.4); }
+        .step-val { color: #22d3ee; }
+        .stress-val { color: #fb923c; }
+        .heart-val { color: #f43f5e; }
+        .motion-val { font-size: 3rem; color: #38bdf8; }
 
-        /* สไตล์แจ้งเตือน SOS & Parkinson */
-        .sos-alert { display: none; width: 95%; max-width: 1200px; background: #ef4444; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; font-weight: bold; animation: blink 1s infinite; }
-        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.5;} 100% {opacity: 1;} }
+        .bar-container { background: rgba(15, 23, 42, 0.6); padding: 15px; border-radius: 15px; margin-top: 15px; }
+        .bar-bg { width: 100%; height: 12px; background: #0f172a; border-radius: 10px; margin-top: 10px; overflow: hidden; border: 1px solid #334155; }
+        .bar-fill { height: 100%; border-radius: 10px; transition: 1s ease-in-out; }
+        
+        #healthBar { background: linear-gradient(90deg, #a855f7, #6366f1); }
+        #stressLevelBar { background: linear-gradient(90deg, #f97316, #ef4444); }
 
-        .history-card { border: 1px solid #ef4444; }
-        .history-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; text-align: left; }
-        .history-item { padding: 8px; border-bottom: 1px solid #334155; color: #fca5a5; font-size: 0.9rem; }
+        .sos-alert { 
+            display: none; width: 95%; max-width: 1200px; 
+            background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); 
+            color: white; padding: 20px; border-radius: 15px; margin-bottom: 25px; 
+            text-align: center; font-size: 1.2rem; font-weight: 800; 
+            animation: pulse-red 1.5s infinite; 
+        }
+        @keyframes pulse-red { 0% {transform: scale(1);} 50% {transform: scale(1.02); opacity: 0.8;} 100% {transform: scale(1);} }
 
-        /* --- สไตล์สำหรับการพิมพ์ PDF --- */
+        /* ✅ ✅ ✅ NEW: Fall Countdown Alert Bar */
+        .fall-alert-bar {
+            display: none;
+            width: 95%; max-width: 1200px;
+            background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+            color: white; padding: 20px; border-radius: 15px; 
+            margin-bottom: 25px; text-align: center; 
+            animation: pulse-amber 1s infinite;
+            position: relative;
+        }
+        @keyframes pulse-amber { 
+            0% {box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);} 
+            70% {box-shadow: 0 0 0 15px rgba(245, 158, 11, 0);} 
+            100% {box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);} 
+        }
+        
+        .cancel-btn {
+            background: white; color: #b45309; border: none; padding: 10px 25px;
+            border-radius: 50px; font-weight: 800; cursor: pointer; margin-top: 10px;
+            font-size: 14px; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .cancel-btn:hover { transform: scale(1.05); background: #fffbeb; }
+        .cancel-btn:active { transform: scale(0.98); }
+        
+        .countdown-num { 
+            font-size: 2.5rem; font-weight: 900; margin: 0 10px; 
+            display: inline-block; animation: blink 1s infinite;
+        }
+        @keyframes blink { 50% { opacity: 0.7; } }
+
+        .history-list { background: #0f172a; border-radius: 12px; padding: 10px; border: 1px solid #1e293b; max-height: 200px; overflow-y: auto; }
+        .history-item { color: #f87171; border-bottom: 1px solid #1e293b; padding: 10px; font-size: 0.9rem; }
+
+        .value-display { font-family: monospace; background: #0f172a; padding: 10px; border-radius: 8px; margin-top: 15px; display: flex; gap: 20px; justify-content: center;}
+        
+        /* ✅ Toast Notification Style */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #1e293b;
+            color: #22c55e;
+            padding: 15px 25px;
+            border-radius: 12px;
+            border-left: 4px solid #22c55e;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            display: none;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
         @media print {
-            body { background: white !important; color: black !important; padding: 0; }
-            .btn-group, .status, canvas, .sos-alert { display: none !important; }
-            .grid { display: block !important; width: 100%; }
-            .card { background: white !important; color: black !important; border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: 20px; page-break-inside: avoid; }
-            h1 { color: black !important; text-align: center; border-bottom: 2px solid black; padding-bottom: 10px; }
-            h3 { color: #1e293b !important; border-bottom: 1px solid #ccc; margin-top: 0; }
-            .counter-val { color: #000 !important; }
-            .history-item { color: black !important; border-bottom: 1px dotted #ccc !important; }
-            .value-display span { color: black !important; }
-            body::before { content: "Smart Wearable - รายงานสุขภาพรายวัน"; display: block; text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+            body { background: white !important; color: black !important; }
+            .card { border: 1px solid #000 !important; background: white !important; color: black !important; }
+            .btn-group, canvas, .sos-alert, .fall-alert-bar, .toast { display: none !important; }
         }
     </style>
 </head>
 <body>
 
-    <div id="sosIndicator" class="sos-alert">🆘 ALERT: ผู้สูงอายุกดขอความช่วยเหลือด่วน! 🆘</div>
-
-    <h1>🧤 Glove Real-time Dashboard</h1>
-    
-    <div class="btn-group">
-        <button id="findGloveBtn" class="btn btn-find">🔍 FIND MY GLOVE</button>
-        <button id="resetExerciseBtn" class="btn btn-reset">🔄 รีเซ็ตจำนวนครั้ง</button>
-        <button onclick="generatePDF()" class="btn btn-pdf">📄 ออกรายงาน PDF (ส่งหมอ)</button>
+    <div id="fallAlertBar" class="fall-alert-bar">
+        <div style="font-size: 1.1rem; margin-bottom: 8px;">
+            ⚠️ ตรวจพบการกระแทก! กำลังนับถอยหลัง 
+            <span id="fallCountdownNum" class="countdown-num">7</span> 
+            วินาที
+        </div>
+        <div style="font-size: 0.9rem; opacity: 0.95; margin-bottom: 12px;">
+            หากไม่ล้ม → กดปุ่มนี้เพื่อยกเลิกการแจ้งเตือน
+        </div>
+        <button id="cancelFallBtn" class="cancel-btn">🛑 ยกเลิกการแจ้งเตือน</button>
     </div>
 
-    <div id="status" class="status">รอข้อมูลจาก Firebase...</div>
+    <div id="sosIndicator" class="sos-alert">🚨 EMERGENCY ALERT: SOS BUTTON PRESSED! 🚨</div>
+    
+    <div id="toast" class="toast">✓ Command Sent Successfully!</div>
+
+    <h1>🧤 CareGlove Monitor</h1>
+    
+    <div class="btn-group">
+        <button id="findGloveBtn" class="btn btn-find">🔍 Locate</button>
+        <button id="resetExerciseBtn" class="btn btn-reset">🔄 Reset Data</button>
+        <button id="resetFallBtn" class="btn btn-fall">🛡️ Clear Fall</button>
+        <button onclick="generatePDF()" class="btn btn-pdf">📄 Export</button>
+    </div>
+
+    <div id="status" class="status">Initializing System...</div>
 
     <div class="grid">
+        <div class="card score-card">
+            <h3 style="color: #a855f7;">🏆 DAILY HEALTH SCORE</h3>
+            <div id="valHealthScore" class="counter-val score-val">0</div>
+            <div class="bar-container">
+                <span id="healthAdvice" style="font-size: 0.9rem; color: #94a3b8;">Analyzing Vitals...</span>
+                <div class="bar-bg"><div id="healthBar" class="bar-fill" style="width: 0%;"></div></div>
+            </div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+            <h3 style="color: #38bdf8;">📊 WEEKLY ACTIVITY TREND</h3>
+            <canvas id="weeklyTrendChart" style="max-height: 300px; width: 100%;"></canvas>
+        </div>
+
+        <div class="card motion-card">
+            <h3>🏃 MOTION ENGINE</h3>
+            <div id="valMotion" class="motion-val">IDLE</div>
+            <p id="motionDesc" style="color: #94a3b8;">System Monitoring Active</p>
+        </div>
+
+        <div class="card step-card">
+            <h3>🚶 STEP TRACKER</h3>
+            <div id="valStep" class="counter-val step-val">0</div>
+            <div class="info-sub" style="display:flex; justify-content: space-around; font-size: 0.9rem; margin-top: 10px;">
+                <span>Dist: <b id="valDist">0</b> m</span>
+                <span>Burn: <b id="valCal">0</b> kcal</span>
+            </div>
+        </div>
+
+        <div class="card stress-card">
+            <h3>🧠 STRESS ANALYSIS</h3>
+            <div id="valStress" class="counter-val stress-val">0</div>
+            <div class="bar-container">
+                <span id="stressAdvice" style="font-size: 0.9rem; color: #94a3b8;">Monitoring...</span>
+                <div class="bar-bg"><div id="stressLevelBar" class="bar-fill" style="width: 0%;"></div></div>
+            </div>
+        </div>
+
         <div class="card heart-card">
-            <h3>❤️ อัตราการเต้นของหัวใจ (Heart Rate)</h3>
+            <h3>❤️ HEART RATE (BPM)</h3>
             <div id="valHeart" class="counter-val heart-val">0</div>
-            <p style="color: #94a3b8;">BPM</p>
+            <div style="display:flex; justify-content: space-around; font-size: 0.8rem; margin-bottom: 10px;">
+                <span id="arrhythmiaStatus" style="color: #22c55e;">RHYTHM: NORMAL</span>
+                <span>SDNN: <b id="valHRV">0</b> ms</span>
+            </div>
             <canvas id="heartChart"></canvas>
         </div>
 
         <div class="card exercise-card">
-            <h3>🏋️ จำนวนครั้งกายภาพ (Wrist Count)</h3>
-            <div id="valExercise" class="counter-val">0</div>
-            <p id="tremorStatus" style="color: #94a3b8;">🩺 สถานะมือสั่น: กำลังวิเคราะห์...</p>
+            <h3>🏋️ WRIST EXERCISE</h3>
+            <div id="valExercise" class="counter-val" style="color: #10b981;">0</div>
+            <p id="tremorStatus" style="color: #94a3b8;">🩺 Tremor: None</p>
         </div>
 
-        <div class="card history-card">
-            <h3 style="color: #ef4444;">🚨 ประวัติเหตุการณ์สำคัญ</h3>
+        <div class="card" style="border-color: #ef4444;">
+            <h3 style="color: #ef4444;">🚨 INCIDENT LOG</h3>
             <div id="fallHistory" class="history-list">
-                <div class="history-item" style="color: #94a3b8;">ยังไม่พบประวัติ</div>
+                <div class="history-item" style="color: #475569;">No incidents.</div>
             </div>
         </div>
 
         <div class="card">
-            <h3>Accelerometer (X, Y, Z)</h3>
+            <h3 style="color: #94a3b8;">AXIS TELEMETRY (X, Y, Z)</h3>
             <canvas id="xyzChart"></canvas>
             <div class="value-display">
-                <span class="x">X: <span id="valX">0</span></span>
-                <span class="y">Y: <span id="valY">0</span></span>
-                <span class="z">Z: <span id="valZ">0</span></span>
+                <span style="color:#ef4444">X: <span id="valX">0</span></span>
+                <span style="color:#22c55e">Y: <span id="valY">0</span></span>
+                <span style="color:#3b82f6">Z: <span id="valZ">0</span></span>
             </div>
         </div>
 
         <div class="card">
-            <h3>Resultant Force (Total G)</h3>
+            <h3 style="color: #fbbf24;">RESULTANT FORCE (G)</h3>
             <canvas id="gChart"></canvas>
             <div class="value-display">
-                <span style="color: #fbbf24;">G-Force: <span id="valG">0</span> m/s²</span>
+                <span style="color:#fbbf24">G-Force: <span id="valG">0</span> m/s²</span>
             </div>
         </div>
     </div>
 
-    <script>
+   <script>
         const firebaseConfig = {
             apiKey: "AIzaSyAY9TqQEY_PsbC2dHniwKVQCJFkmMGRlTI",
             databaseURL: "https://glove-a8c55-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -115,34 +285,60 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // ฟังก์ชันสั่งเรียกถุงมือ
+        // ✅ ✅ ✅ NEW: Audio beep for countdown (สั้นๆ 440Hz)
+        const alertBeep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+        let isBeepPlaying = false;
+
+        // ✅ Toast Notification Function
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.borderLeftColor = type === 'success' ? '#22c55e' : '#ef4444';
+            toast.style.color = type === 'success' ? '#22c55e' : '#f87171';
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        }
+
+        // ✅ Control Buttons with Toast Feedback
         document.getElementById('findGloveBtn').addEventListener('click', () => {
-            db.ref("/SmartGlove/Control").update({ findMe: true }).then(() => {
-                const btn = document.getElementById('findGloveBtn');
-                btn.innerText = "🔔 กำลังเรียก...";
-                setTimeout(() => btn.innerText = "🔍 FIND MY GLOVE", 2000);
-            });
+            db.ref("/SmartGlove/Control").update({ findMe: true });
+            showToast("🔍 Locate command sent!");
         });
 
-        // ฟังก์ชันรีเซ็ตค่า
         document.getElementById('resetExerciseBtn').addEventListener('click', () => {
-            if(confirm("ต้องการเริ่มนับจำนวนครั้งใหม่ใช่หรือไม่?")) {
-                db.ref("/SmartGlove/Live").update({ exerciseCount: 0 });
+            if(confirm("Reset today's exercise & step data?")) {
+                db.ref("/SmartGlove/Live").update({ exerciseCount: 0, stepCount: 0 });
+                showToast("🔄 Session data reset!");
             }
         });
 
-        // ฟังก์ชันออก PDF
-        function generatePDF() {
-            const originalTitle = document.title;
-            const now = new Date();
-            document.title = "HealthReport_" + now.toLocaleDateString();
-            window.print();
-            document.title = originalTitle;
+        // ✅ Reset Fall Detection Button
+        document.getElementById('resetFallBtn').addEventListener('click', () => {
+            if(confirm("Clear fall detection alert and reset status?")) {
+                db.ref("/SmartGlove/Control/resetFall").set(true);
+                showToast("🛡️ Fall alert cleared!");
+                console.log("[UI] ResetFall command sent to Firebase");
+            }
+        });
+
+        function generatePDF() { 
+            showToast("📄 Generating report...");
+            setTimeout(() => { window.print(); }, 500); 
         }
 
-        // Chart Setup
+        // ✅ ✅ ✅ NEW: Cancel Fall Alert Button
+        document.getElementById('cancelFallBtn').addEventListener('click', () => {
+            db.ref("/SmartGlove/Control/cancelFall").set(true);
+            showToast("🛑 Fall alert cancelled!");
+            if (alertBeep) { alertBeep.pause(); alertBeep.currentTime = 0; }
+            isBeepPlaying = false;
+        });
+
+        // Chart Configuration
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
         const commonOptions = { animation: false, scales: { y: { beginAtZero: false } }, elements: { point: { radius: 0 } } };
-        
+
         const xyzChart = new Chart(document.getElementById('xyzChart'), {
             type: 'line',
             data: { labels: Array(30).fill(''), datasets: [
@@ -155,88 +351,205 @@
 
         const gChart = new Chart(document.getElementById('gChart'), {
             type: 'line',
-            data: { labels: Array(30).fill(''), datasets: [{ label: 'Total G', data: [], borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.2)', fill: true }]},
+            data: { labels: Array(30).fill(''), datasets: [{ label: 'G', data: [], borderColor: '#fbbf24', fill: true, backgroundColor: 'rgba(251, 191, 36, 0.1)' }]},
             options: { ...commonOptions, scales: { y: { min: 0, max: 40 } } }
         });
 
         const heartChart = new Chart(document.getElementById('heartChart'), {
             type: 'line',
-            data: { labels: Array(30).fill(''), datasets: [{ label: 'BPM', data: [], borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.1)', fill: true }]},
+            data: { labels: Array(30).fill(''), datasets: [{ label: 'BPM', data: [], borderColor: '#f43f5e', fill: true, backgroundColor: 'rgba(244, 63, 94, 0.1)' }]},
             options: { ...commonOptions, scales: { y: { min: 40, max: 180 } } }
         });
 
-        let lastFallState = false;
-        let lastSOSState = false;
+        const weeklyTrendChart = new Chart(document.getElementById('weeklyTrendChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: ['', '', '', '', '', '', 'Today'],
+                datasets: [
+                    { label: 'Health Score', data: [0, 0, 0, 0, 0, 0, 0], borderColor: '#a855f7', fill: true, tension: 0.4 },
+                    { label: 'Steps', data: [0, 0, 0, 0, 0, 0, 0], borderColor: '#06b6d4', yAxisID: 'y1' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y1: { position: 'right' } } }
+        });
 
-        // ดึงข้อมูลจาก Firebase
+        // Firebase Logic
+        let lastFallState = false, lastSOSState = false;
+        let currentFallPhase = "none"; // ✅ ✅ ✅ NEW: Track fall phase
+
         db.ref("/SmartGlove/Live").on("value", (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                document.getElementById('status').innerText = "✅ เชื่อมต่อสำเร็จ (Streaming)";
+                document.getElementById('status').innerText = "• SYSTEM ONLINE";
                 document.getElementById('status').className = "status online";
 
-                // อัปเดตตัวเลข
+                // Update Values
                 document.getElementById('valX').innerText = (data.x || 0).toFixed(2);
                 document.getElementById('valY').innerText = (data.y || 0).toFixed(2);
                 document.getElementById('valZ').innerText = (data.z || 0).toFixed(2);
                 document.getElementById('valG').innerText = (data.total_g || 0).toFixed(2);
-                document.getElementById('valExercise').innerText = data.exerciseCount || 0;
+                document.getElementById('valHealthScore').innerText = data.healthScore || 0;
+                document.getElementById('healthBar').style.width = (data.healthScore || 0) + "%";
+                document.getElementById('valStep').innerText = data.stepCount || 0;
+                document.getElementById('valDist').innerText = ((data.stepCount || 0) * 0.7).toFixed(1);
+                document.getElementById('valCal').innerText = ((data.stepCount || 0) * 0.04).toFixed(1);
                 document.getElementById('valHeart').innerText = data.heartRate || 0;
-
-                // ตรวจจับ SOS
-                if (data.isSOS) {
-                    document.getElementById('sosIndicator').style.display = 'block';
-                    if (!lastSOSState) addHistory("🆘 SOS: ขอความช่วยเหลือด่วน");
-                } else {
-                    document.getElementById('sosIndicator').style.display = 'none';
+                document.getElementById('valExercise').innerText = data.exerciseCount || 0;
+                document.getElementById('valMotion').innerText = data.motionStatus || "IDLE";
+                
+                // ✅ Update Stress Display
+                if(data.stressLevel !== undefined) {
+                    document.getElementById('valStress').innerText = data.stressLevel;
+                    document.getElementById('valHRV').innerText = (data.hrvSDNN || 0).toFixed(1);
+                    document.getElementById('stressLevelBar').style.width = (data.stressLevel * 25) + "%";
+                    
+                    const stressLabels = ["", "😌 Relaxed", "😐 Normal", "😰 Stressed", "🚨 Critical"];
+                    document.getElementById('stressAdvice').innerText = stressLabels[data.stressLevel] || "Monitoring...";
                 }
+                
+                // Update XYZ Chart
+                if(xyzChart.data.datasets[0].data.length > 30) {
+                    xyzChart.data.datasets.forEach(d => d.data.shift());
+                }
+                xyzChart.data.datasets[0].data.push(data.x || 0);
+                xyzChart.data.datasets[1].data.push(data.y || 0);
+                xyzChart.data.datasets[2].data.push(data.z || 0);
+                xyzChart.update('none');
+
+                // Update G-Force Chart
+                if(gChart.data.datasets[0].data.length > 30) gChart.data.datasets[0].data.shift();
+                gChart.data.datasets[0].data.push(data.total_g || 0);
+                gChart.update('none');
+
+                // Update Heart Chart
+                if(heartChart.data.datasets[0].data.length > 30) heartChart.data.datasets[0].data.shift();
+                heartChart.data.datasets[0].data.push(data.heartRate || 0);
+                heartChart.update('none');
+
+                // ✅ ✅ ✅ NEW: Handle Fall Phase & Countdown
+                const fallPhase = data.fallPhase || "none";
+                const fallCountdown = data.fallCountdown !== undefined ? data.fallCountdown : 7;
+                
+                if (fallPhase !== currentFallPhase) {
+                    currentFallPhase = fallPhase;
+                    updateFallAlertUI(fallPhase, fallCountdown);
+                }
+                
+                // อัพเดทตัวเลขถอยหลังแบบเรียลไทม์
+                if (fallPhase === "pre_alert") {
+                    document.getElementById('fallCountdownNum').innerText = fallCountdown;
+                    // เล่นเสียงเตือนเฉพาะตอนเริ่มนับถอยหลัง
+                    if (!isBeepPlaying && alertBeep) {
+                        alertBeep.play().catch(e => console.log("Audio play blocked:", e));
+                        isBeepPlaying = true;
+                    }
+                } else {
+                    // หยุดเสียงเมื่อออกจากโหมดนับถอยหลัง
+                    if (alertBeep) { alertBeep.pause(); alertBeep.currentTime = 0; }
+                    isBeepPlaying = false;
+                }
+
+                // Incident Detection (SOS)
+                if (data.isSOS) { 
+                    document.getElementById('sosIndicator').style.display = 'block'; 
+                    if (!lastSOSState) addHistory("🆘 SOS: Request Help"); 
+                } else { document.getElementById('sosIndicator').style.display = 'none'; }
                 lastSOSState = data.isSOS;
 
-                // ตรวจจับอาการสั่น (Parkinson)
-                const tremorEl = document.getElementById('tremorStatus');
-                if (data.tremorAlert) {
-                    tremorEl.innerText = "🩺 สถานะมือสั่น: ตรวจพบความถี่ผิดปกติ!";
-                    tremorEl.style.color = "#fbbf24";
-                } else {
-                    tremorEl.innerText = "🩺 สถานะมือสั่น: ปกติ";
-                    tremorEl.style.color = "#4ade80";
-                }
-
-                // บันทึกประวัติการล้ม
+                // Fall Confirmed (หลังจากนับถอยหลังจบ)
                 if (data.isFallen && !lastFallState) {
-                    addHistory("🚨 ตรวจพบการล้ม!");
+                    addHistory("🚨 FALL DETECTED!");
+                    document.querySelector('.motion-card').style.borderColor = '#ef4444';
+                    setTimeout(() => {
+                        document.querySelector('.motion-card').style.borderColor = '';
+                    }, 3000);
                 }
                 lastFallState = data.isFallen;
-
-                // อัปเดตกราฟ XYZ
-                [xyzChart.data.datasets[0].data, xyzChart.data.datasets[1].data, xyzChart.data.datasets[2].data].forEach((dataset, i) => {
-                    if (dataset.length > 30) dataset.shift();
-                    dataset.push(i === 0 ? data.x : i === 1 ? data.y : data.z);
-                });
-                xyzChart.update();
-
-                // อัปเดตกราฟ G
-                if (gChart.data.datasets[0].data.length > 30) gChart.data.datasets[0].data.shift();
-                gChart.data.datasets[0].data.push(data.total_g);
-                gChart.update();
-
-                // อัปเดตกราฟ Heart Rate
-                if (heartChart.data.datasets[0].data.length > 30) heartChart.data.datasets[0].data.shift();
-                heartChart.data.datasets[0].data.push(data.heartRate || 0);
-                heartChart.update();
+                
+                // Update Motion Status Color based on state
+                const motionEl = document.getElementById('valMotion');
+                if(data.motionStatus === "Fall Detected!") {
+                    motionEl.style.color = '#ef4444';
+                } else if(data.motionStatus === "SOS Alert!") {
+                    motionEl.style.color = '#f97316';
+                } else if(data.motionStatus === "Impact Check...") {
+                    motionEl.style.color = '#f59e0b'; // สีเหลืองตอนนับถอยหลัง
+                } else {
+                    motionEl.style.color = '#38bdf8';
+                }
             }
         });
 
+        // ✅ ✅ ✅ NEW: Function to update Fall Alert UI
+        function updateFallAlertUI(phase, countdown) {
+            const fallBar = document.getElementById('fallAlertBar');
+            const sosBar = document.getElementById('sosIndicator');
+            const cancelBtn = document.getElementById('cancelFallBtn');
+            
+            if (phase === "pre_alert") {
+                // แสดงแถบแจ้งเตือนสีส้ม + นับถอยหลัง
+                fallBar.style.display = 'block';
+                fallBar.innerHTML = `
+                    <div style="font-size: 1.1rem; margin-bottom: 8px;">
+                        ⚠️ ตรวจพบการกระแทก! กำลังนับถอยหลัง 
+                        <span id="fallCountdownNum" class="countdown-num">${countdown}</span> 
+                        วินาที
+                    </div>
+                    <div style="font-size: 0.9rem; opacity: 0.95; margin-bottom: 12px;">
+                        หากไม่ล้ม → กดปุ่มนี้เพื่อยกเลิกการแจ้งเตือน
+                    </div>
+                    <button id="cancelFallBtn" class="cancel-btn">🛑 ยกเลิกการแจ้งเตือน</button>
+                `;
+                // รีเซ็ต event listener สำหรับปุ่มใหม่
+                document.getElementById('cancelFallBtn').addEventListener('click', () => {
+                    db.ref("/SmartGlove/Control/cancelFall").set(true);
+                    showToast("🛑 Fall alert cancelled!");
+                    if (alertBeep) { alertBeep.pause(); alertBeep.currentTime = 0; }
+                    isBeepPlaying = false;
+                });
+                sosBar.style.display = 'none';
+                
+            } else if (phase === "confirmed") {
+                // ซ่อนแถบสีส้ม → แสดง SOS Alert สีแดง
+                fallBar.style.display = 'none';
+                sosBar.style.display = 'block';
+                addHistory("🚨 FALL CONFIRMED - Alert Sent!");
+                
+            } else if (phase === "cancelled") {
+                // ผู้ใช้กดยกเลิก → แจ้งเตือนและซ่อนทั้งหมด
+                fallBar.style.display = 'none';
+                sosBar.style.display = 'none';
+                showToast("✅ Fall alert cancelled by user");
+                addHistory("🛑 Fall Alert Cancelled");
+                
+            } else {
+                // ปกติ → ซ่อนทั้งหมด
+                fallBar.style.display = 'none';
+                sosBar.style.display = 'none';
+            }
+        }
+
         function addHistory(msg) {
             const historyBox = document.getElementById('fallHistory');
-            if(historyBox.innerText.includes("ยังไม่พบประวัติ")) historyBox.innerHTML = "";
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString() + " (" + now.toLocaleDateString() + ")";
-            const newEntry = document.createElement('div');
-            newEntry.className = "history-item";
-            newEntry.innerHTML = `<b>${msg}</b> - ${timeStr}`;
-            historyBox.prepend(newEntry);
+            if(historyBox.innerText.includes("No incidents")) historyBox.innerHTML = "";
+            const entry = document.createElement('div');
+            entry.className = "history-item";
+            entry.innerHTML = `<b>${msg}</b> - ${new Date().toLocaleTimeString()}`;
+            historyBox.prepend(entry);
         }
+
+        // History Trend Mockup
+        function updateTrend() {
+            db.ref("/SmartGlove/History").limitToLast(7).on("value", (snap) => {
+                const history = snap.val();
+                if(history) {
+                    // logic to update weeklyTrendChart
+                }
+            });
+        }
+        
+        // Initialize trend chart
+        updateTrend();
     </script>
 </body>
 </html>
